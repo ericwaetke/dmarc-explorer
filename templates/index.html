@@ -2,34 +2,50 @@
 
 {% block content %}
 <div class="bg-white p-6 rounded shadow-md">
-    <h2 class="text-xl font-semibold mb-4 text-gray-700">DMARC Reports Dashboard</h2>
+    <h2 class="text-xl font-semibold mb-4 text-gray-700">Domains Overview</h2>
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-gray-200 text-gray-700">
-                    <th class="py-2 px-4 border-b">ID</th>
-                    <th class="py-2 px-4 border-b">Organization</th>
                     <th class="py-2 px-4 border-b">Domain</th>
-                    <th class="py-2 px-4 border-b">Begin Date</th>
-                    <th class="py-2 px-4 border-b">End Date</th>
-                    <th class="py-2 px-4 border-b">Action</th>
+                    <th class="py-2 px-4 border-b">Last Report</th>
+                    <th class="py-2 px-4 border-b">Total Messages</th>
+                    <th class="py-2 px-4 border-b">Failed Policies</th>
+                    <th class="py-2 px-4 border-b">Action Items</th>
                 </tr>
             </thead>
             <tbody>
-                {% for report in reports %}
+                {% for domain in domains %}
                 <tr class="hover:bg-gray-50 border-b">
-                    <td class="py-2 px-4">{{ report.id }}</td>
-                    <td class="py-2 px-4 font-semibold">{{ report.org_name }}</td>
-                    <td class="py-2 px-4">{{ report.domain }}</td>
-                    <td class="py-2 px-4">{{ report.begin_date }}</td>
-                    <td class="py-2 px-4">{{ report.end_date }}</td>
+                    <td class="py-2 px-4 font-semibold">
+                        <a href="/domain/{{ domain.domain }}" class="text-blue-500 hover:underline">{{ domain.domain }}</a>
+                    </td>
+                    <td class="py-2 px-4">{{ domain.last_report }}</td>
+                    <td class="py-2 px-4">{{ domain.total_messages }}</td>
                     <td class="py-2 px-4">
-                        <a href="/report/{{ report.id }}" class="text-blue-500 hover:underline">View</a>
+                        {% if domain.failures > 0 %}
+                        <span class="bg-red-100 text-red-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">{{ domain.failures }}</span>
+                        {% else %}
+                        <span class="text-green-600">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-4">
+                        {% if domain.failures > 0 %}
+                        <span class="text-red-600 font-bold flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Check required
+                        </span>
+                        {% else %}
+                        <span class="text-green-600 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            All good
+                        </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="py-4 text-center text-gray-500">No reports found. Waiting for IMAP sync...</td>
+                    <td colspan="5" class="py-4 text-center text-gray-500">No reports found. Waiting for IMAP sync...</td>
                 </tr>
                 {% endfor %}
             </tbody>
