@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white p-6 rounded shadow-md mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-700">Report Details</h2>
+        <a href="/" class="text-blue-500 hover:underline">&larr; Back to Dashboard</a>
+    </div>
+    
+    <div class="grid grid-cols-2 gap-4 text-sm text-gray-700">
+        <div><span class="font-bold">Organization:</span> {{ report.org_name }}</div>
+        <div><span class="font-bold">Email:</span> {{ report.email }}</div>
+        <div><span class="font-bold">Domain:</span> {{ report.domain }}</div>
+        <div><span class="font-bold">Report ID:</span> {{ report.report_id }}</div>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded shadow-md">
+    <h3 class="text-lg font-semibold mb-4 text-gray-700">Records</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+            <thead>
+                <tr class="bg-gray-200 text-gray-700">
+                    <th class="py-2 px-4 border-b">Source IP</th>
+                    <th class="py-2 px-4 border-b">Count</th>
+                    <th class="py-2 px-4 border-b">Disposition</th>
+                    <th class="py-2 px-4 border-b">DKIM Result</th>
+                    <th class="py-2 px-4 border-b">SPF Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="py-2 px-4">{{ record.source_ip }}</td>
+                    <td class="py-2 px-4">{{ record.count }}</td>
+                    <td class="py-2 px-4">
+                        <span class="px-2 py-1 rounded text-xs 
+                        {% if record.disposition == "none" %}bg-green-100 text-green-800
+                        {% else if record.disposition == "quarantine" %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ record.disposition }}
+                        </span>
+                    </td>
+                    <td class="py-2 px-4">{{ record.dkim }}</td>
+                    <td class="py-2 px-4">{{ record.spf }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="py-4 text-center text-gray-500">No records found in this report.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

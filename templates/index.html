@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white p-6 rounded shadow-md">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700">DMARC Reports Dashboard</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-200 text-gray-700">
+                    <th class="py-2 px-4 border-b">ID</th>
+                    <th class="py-2 px-4 border-b">Organization</th>
+                    <th class="py-2 px-4 border-b">Domain</th>
+                    <th class="py-2 px-4 border-b">Begin Date</th>
+                    <th class="py-2 px-4 border-b">End Date</th>
+                    <th class="py-2 px-4 border-b">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="py-2 px-4">{{ report.id }}</td>
+                    <td class="py-2 px-4 font-semibold">{{ report.org_name }}</td>
+                    <td class="py-2 px-4">{{ report.domain }}</td>
+                    <td class="py-2 px-4">{{ report.begin_date }}</td>
+                    <td class="py-2 px-4">{{ report.end_date }}</td>
+                    <td class="py-2 px-4">
+                        <a href="/report/{{ report.id }}" class="text-blue-500 hover:underline">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="py-4 text-center text-gray-500">No reports found. Waiting for IMAP sync...</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
