@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h2 class="text-2xl font-bold text-gray-800">Domain Details: {{ domain }}</h2>
+    <a href="/" class="text-blue-500 hover:underline font-semibold">&larr; Back to Dashboard</a>
+</div>
+
+{% if failures.len() > 0 %}
+<div class="bg-white p-6 rounded shadow-md border-l-4 border-red-500 mb-6">
+    <h3 class="text-lg font-semibold mb-2 text-red-700 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        Action Items: Failing Sources
+    </h3>
+    <p class="text-sm text-gray-600 mb-4">
+        The following IP addresses sent emails failing DMARC policies. Check if these are legitimate senders missing DKIM/SPF records or malicious spoofing attempts.
+    </p>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+            <thead>
+                <tr class="bg-red-50 text-red-800">
+                    <th class="py-2 px-3 border-b border-red-200">Source IP</th>
+                    <th class="py-2 px-3 border-b border-red-200">Volume</th>
+                    <th class="py-2 px-3 border-b border-red-200">Reporter</th>
+                    <th class="py-2 px-3 border-b border-red-200">Disposition</th>
+                    <th class="py-2 px-3 border-b border-red-200">DKIM / SPF</th>
+                    <th class="py-2 px-3 border-b border-red-200">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fail in failures %}
+                <tr class="hover:bg-red-50/50 border-b border-gray-100">
+                    <td class="py-2 px-3 font-mono">{{ fail.source_ip }}</td>
+                    <td class="py-2 px-3 font-semibold">{{ fail.count }}</td>
+                    <td class="py-2 px-3 text-gray-600">{{ fail.org_name }}</td>
+                    <td class="py-2 px-3 text-red-600 font-semibold">{{ fail.disposition }}</td>
+                    <td class="py-2 px-3">
+                        <span class="{% if fail.dkim == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">DKIM: {{ fail.dkim }}</span><br/>
+                        <span class="{% if fail.spf == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">SPF: {{ fail.spf }}</span>
+                    </td>
+                    <td class="py-2 px-3">
+                        <a href="/report/{{ fail.report_id }}" class="text-blue-500 hover:underline">View Report</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="bg-green-50 p-6 rounded shadow-md border-l-4 border-green-500 mb-6">
+    <h3 class="text-lg font-semibold text-green-800 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        All clear
+    </h3>
+    <p class="text-sm text-green-700 mt-1">All processed messages for this domain are successfully passing DMARC policies.</p>
+</div>
+{% endif %}
+
+<div class="bg-white p-6 rounded shadow-md">
+    <h3 class="text-xl font-semibold mb-4 text-gray-700">All Reports Timeline</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-200 text-gray-700">
+                    <th class="py-2 px-4 border-b">ID</th>
+                    <th class="py-2 px-4 border-b">Organization</th>
+                    <th class="py-2 px-4 border-b">Begin Date</th>
+                    <th class="py-2 px-4 border-b">End Date</th>
+                    <th class="py-2 px-4 border-b">Failures</th>
+                    <th class="py-2 px-4 border-b">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="py-2 px-4">{{ report.id }}</td>
+                    <td class="py-2 px-4 font-semibold">{{ report.org_name }}</td>
+                    <td class="py-2 px-4">{{ report.begin_date }}</td>
+                    <td class="py-2 px-4">{{ report.end_date }}</td>
+                    <td class="py-2 px-4">
+                        {% if report.failures > 0 %}
+                        <span class="text-red-600 font-bold">{{ report.failures }}</span>
+                        {% else %}
+                        <span class="text-green-600">0</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-4">
+                        <a href="/report/{{ report.id }}" class="text-blue-500 hover:underline">View Details</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="py-4 text-center text-gray-500">No reports found for this domain.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
