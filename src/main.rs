@@ -8,7 +8,14 @@ use dotenvy::dotenv;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tracing::{info, error};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: Arc<sqlx::SqlitePool>,
+    pub status: Arc<RwLock<String>>,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -36,7 +43,15 @@ async fn main() -> Result<()> {
     let imap_dest = env::var("IMAP_DEST_FOLDER").unwrap_or_else(|_| "DMARC".to_string());
 
     let pool_arc = Arc::new(pool.clone());
+    let status = Arc::new(RwLock::new("Initializing...".to_string()));
+    
+    let state = AppState {
+        pool: pool_arc.clone(),
+        status: status.clone(),
+    };
+
     let pool_for_imap = pool_arc.clone();
+    let status_for_imap = status.clone();
 
     tokio::spawn(async move {
         if let Err(e) = imap::run_imap_client(
@@ -45,12 +60,13 @@ async fn main() -> Result<()> {
             &imap_pass,
             &imap_dest,
             pool_for_imap,
+            status_for_imap,
         ).await {
             error!("IMAP client error: {:?}", e);
         }
     });
 
-    let app = web::router(pool);
+    let app = web::router(state);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     info!("Web server listening on 0.0.0.0:3000");
     axum::serve(listener, app).await?;

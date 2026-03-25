@@ -1,12 +1,12 @@
 use askama::Template;
 use axum::{
     extract::{Path, State},
-    response::Html,
+    response::{Html, IntoResponse},
     routing::get,
     Router,
 };
-use sqlx::SqlitePool;
 use std::sync::Arc;
+use crate::AppState;
 
 #[derive(Template)]
 #[template(path = "index.html")]
@@ -86,15 +86,22 @@ pub struct RecordDetail {
     pub spf_domain: Option<String>,
 }
 
-pub fn router(pool: SqlitePool) -> Router {
+pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/domain/:domain", get(domain_detail))
         .route("/report/:id", get(report_detail))
-        .with_state(Arc::new(pool))
+        .route("/api/status", get(get_status))
+        .with_state(state)
 }
 
-async fn index(State(pool): State<Arc<SqlitePool>>) -> Html<String> {
+async fn get_status(State(state): State<AppState>) -> impl IntoResponse {
+    let status = state.status.read().await;
+    status.clone()
+}
+
+async fn index(State(state): State<AppState>) -> Html<String> {
+    let pool = &state.pool;
     let domains = sqlx::query_as::<_, DomainSummary>(
         "SELECT 
             r.domain,
@@ -106,7 +113,7 @@ async fn index(State(pool): State<Arc<SqlitePool>>) -> Html<String> {
         GROUP BY r.domain
         ORDER BY failures DESC, MAX(r.end_date) DESC"
     )
-    .fetch_all(&*pool)
+    .fetch_all(&**pool)
     .await
     .unwrap_or_default();
 
@@ -115,9 +122,10 @@ async fn index(State(pool): State<Arc<SqlitePool>>) -> Html<String> {
 }
 
 async fn domain_detail(
-    State(pool): State<Arc<SqlitePool>>,
+    State(state): State<AppState>,
     Path(domain): Path<String>,
 ) -> Html<String> {
+    let pool = &state.pool;
     let reports = sqlx::query_as::<_, ReportSummary>(
         "SELECT 
             r.id, r.org_name, r.domain, 
@@ -131,7 +139,7 @@ async fn domain_detail(
          ORDER BY r.begin_date DESC"
     )
     .bind(&domain)
-    .fetch_all(&*pool)
+    .fetch_all(&**pool)
     .await
     .unwrap_or_default();
 
@@ -155,7 +163,7 @@ async fn domain_detail(
          ORDER BY rec.count DESC"
     )
     .bind(&domain)
-    .fetch_all(&*pool)
+    .fetch_all(&**pool)
     .await
     .unwrap_or_default();
 
@@ -164,14 +172,15 @@ async fn domain_detail(
 }
 
 async fn report_detail(
-    State(pool): State<Arc<SqlitePool>>,
+    State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Html<String> {
+    let pool = &state.pool;
     let report = sqlx::query_as::<_, ReportDetail>(
         "SELECT id, org_name, email, domain, report_id FROM reports WHERE id = ?",
     )
     .bind(id)
-    .fetch_one(&*pool)
+    .fetch_one(&**pool)
     .await
     .unwrap();
 
@@ -179,7 +188,7 @@ async fn report_detail(
         "SELECT source_ip, count, disposition, coalesce(dkim_result, 'none') as dkim, coalesce(spf_result, 'none') as spf, reason_type, reason_comment, dkim_domain, spf_domain FROM records WHERE report_id = ?",
     )
     .bind(&report.report_id)
-    .fetch_all(&*pool)
+    .fetch_all(&**pool)
     .await
     .unwrap_or_default();
 
