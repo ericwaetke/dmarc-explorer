@@ -47,6 +47,19 @@
         </table>
     </div>
 </div>
+
+<div class="bg-blue-50 p-6 rounded shadow-md border-l-4 border-blue-500 mb-6">
+    <h3 class="text-lg font-semibold mb-2 text-blue-800 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Common Reasons for DMARC Failures
+    </h3>
+    <ul class="list-disc list-inside text-sm text-gray-700 space-y-2 mt-2">
+        <li><strong>Third-Party Senders:</strong> Services like Mailchimp, Sendgrid, or Google Workspace may be sending emails on your behalf, but their IPs aren't listed in your domain's SPF record, or you haven't set up DKIM keys for them.</li>
+        <li><strong>Email Forwarding:</strong> When a recipient forwards an email, the forwarding server's IP will usually fail SPF. To survive forwarding, the email <em>must</em> have a valid DKIM signature.</li>
+        <li><strong>Misconfigured SPF/DKIM:</strong> Syntax errors in your SPF TXT record or improperly rotated DKIM keys can cause legitimate emails to fail authentication.</li>
+        <li><strong>Malicious Spoofing:</strong> The source IP might belong to a spammer or attacker attempting to spoof your domain. If you don't recognize the IP or service, DMARC is successfully protecting your domain by rejecting it.</li>
+    </ul>
+</div>
 {% else %}
 <div class="bg-green-50 p-6 rounded shadow-md border-l-4 border-green-500 mb-6">
     <h3 class="text-lg font-semibold text-green-800 flex items-center">
