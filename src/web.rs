@@ -19,6 +19,7 @@ struct IndexTemplate {
 struct DomainTemplate {
     domain: String,
     reports: Vec<ReportSummary>,
+    failures: Vec<FailedSource>,
 }
 
 #[derive(Template)]
@@ -31,7 +32,7 @@ struct ReportTemplate {
 #[derive(sqlx::FromRow)]
 pub struct DomainSummary {
     pub domain: String,
-    pub last_report: i64,
+    pub last_report: String,
     pub total_messages: i64,
     pub failures: i64,
 }
@@ -42,8 +43,20 @@ pub struct ReportSummary {
     pub id: i64,
     pub org_name: String,
     pub domain: String,
-    pub begin_date: i64,
-    pub end_date: i64,
+    pub begin_date: String,
+    pub end_date: String,
+    pub failures: i64,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct FailedSource {
+    pub source_ip: String,
+    pub count: i64,
+    pub org_name: String,
+    pub disposition: String,
+    pub dkim: String,
+    pub spf: String,
+    pub report_id: i64,
 }
 
 #[derive(sqlx::FromRow)]
@@ -77,13 +90,13 @@ async fn index(State(pool): State<Arc<SqlitePool>>) -> Html<String> {
     let domains = sqlx::query_as::<_, DomainSummary>(
         "SELECT 
             r.domain,
-            MAX(r.end_date) as last_report,
+            datetime(MAX(r.end_date), 'unixepoch') as last_report,
             SUM(rec.count) as total_messages,
             SUM(CASE WHEN rec.disposition != 'none' OR coalesce(rec.dkim_result, 'fail') != 'pass' OR coalesce(rec.spf_result, 'fail') != 'pass' THEN rec.count ELSE 0 END) as failures
         FROM reports r
         LEFT JOIN records rec ON r.report_id = rec.report_id
         GROUP BY r.domain
-        ORDER BY failures DESC, last_report DESC"
+        ORDER BY failures DESC, MAX(r.end_date) DESC"
     )
     .fetch_all(&*pool)
     .await
@@ -98,14 +111,43 @@ async fn domain_detail(
     Path(domain): Path<String>,
 ) -> Html<String> {
     let reports = sqlx::query_as::<_, ReportSummary>(
-        "SELECT id, org_name, domain, begin_date, end_date FROM reports WHERE domain = ? ORDER BY begin_date DESC"
+        "SELECT 
+            r.id, r.org_name, r.domain, 
+            datetime(r.begin_date, 'unixepoch') as begin_date, 
+            datetime(r.end_date, 'unixepoch') as end_date,
+            SUM(CASE WHEN rec.disposition != 'none' OR coalesce(rec.dkim_result, 'fail') != 'pass' OR coalesce(rec.spf_result, 'fail') != 'pass' THEN rec.count ELSE 0 END) as failures
+         FROM reports r
+         LEFT JOIN records rec ON r.report_id = rec.report_id
+         WHERE r.domain = ? 
+         GROUP BY r.id
+         ORDER BY r.begin_date DESC"
     )
     .bind(&domain)
     .fetch_all(&*pool)
     .await
     .unwrap_or_default();
 
-    let template = DomainTemplate { domain, reports };
+    let failures = sqlx::query_as::<_, FailedSource>(
+        "SELECT 
+            rec.source_ip, 
+            rec.count, 
+            r.org_name,
+            rec.disposition, 
+            coalesce(rec.dkim_result, 'none') as dkim, 
+            coalesce(rec.spf_result, 'none') as spf,
+            r.id as report_id
+         FROM records rec
+         JOIN reports r ON rec.report_id = r.report_id
+         WHERE r.domain = ? 
+           AND (rec.disposition != 'none' OR coalesce(rec.dkim_result, 'fail') != 'pass' OR coalesce(rec.spf_result, 'fail') != 'pass')
+         ORDER BY rec.count DESC"
+    )
+    .bind(&domain)
+    .fetch_all(&*pool)
+    .await
+    .unwrap_or_default();
+
+    let template = DomainTemplate { domain, reports, failures };
     Html(template.render().unwrap())
 }
 
