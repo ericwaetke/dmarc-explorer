@@ -1,11 +1,11 @@
+use crate::db::{DmarcRecord, DmarcReport};
 use anyhow::{Context, Result};
+use flate2::read::GzDecoder;
 use mailparse::{parse_mail, ParsedMail};
 use quick_xml::de::from_reader;
 use serde::Deserialize;
-use std::io::{Read, Cursor};
-use flate2::read::GzDecoder;
+use std::io::{Cursor, Read};
 use zip::ZipArchive;
-use crate::db::{DmarcReport, DmarcRecord};
 
 #[derive(Debug, Deserialize)]
 struct Feedback {
@@ -49,21 +49,34 @@ struct Row {
 #[derive(Debug, Deserialize)]
 struct PolicyEvaluated {
     disposition: String,
+    #[serde(default)]
+    reason: Vec<Reason>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Reason {
+    #[serde(rename = "type")]
+    reason_type: Option<String>,
+    comment: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct AuthResults {
-    dkim: Option<DkimResult>,
-    spf: Option<SpfResult>,
+    #[serde(default)]
+    dkim: Vec<DkimResult>,
+    #[serde(default)]
+    spf: Vec<SpfResult>,
 }
 
 #[derive(Debug, Deserialize)]
 struct DkimResult {
+    domain: Option<String>,
     result: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct SpfResult {
+    domain: Option<String>,
     result: String,
 }
 
@@ -78,7 +91,7 @@ fn find_and_parse_attachments(part: &ParsedMail, reports: &mut Vec<DmarcReport>)
     if part.subparts.is_empty() {
         let content_type = part.ctype.mimetype.clone();
         let filename = part.ctype.params.get("name").cloned().unwrap_or_default();
-        
+
         let body = part.get_body_raw()?;
         if filename.ends_with(".zip") || content_type.contains("zip") {
             let mut archive = ZipArchive::new(Cursor::new(body))?;
@@ -110,15 +123,34 @@ fn find_and_parse_attachments(part: &ParsedMail, reports: &mut Vec<DmarcReport>)
 
 fn parse_xml(data: &[u8]) -> Result<DmarcReport> {
     let fb: Feedback = from_reader(data).context("Failed to parse XML")?;
-    
+
     let mut db_records = Vec::new();
     for rec in fb.record {
+        let reason_type = rec
+            .row
+            .policy_evaluated
+            .reason
+            .first()
+            .and_then(|r| r.reason_type.clone());
+        let reason_comment = rec
+            .row
+            .policy_evaluated
+            .reason
+            .first()
+            .and_then(|r| r.comment.clone());
+        let dkim_domain = rec.auth_results.dkim.first().and_then(|d| d.domain.clone());
+        let spf_domain = rec.auth_results.spf.first().and_then(|s| s.domain.clone());
+
         db_records.push(DmarcRecord {
             source_ip: rec.row.source_ip,
             count: rec.row.count,
             disposition: rec.row.policy_evaluated.disposition,
-            dkim_result: rec.auth_results.dkim.map(|d| d.result),
-            spf_result: rec.auth_results.spf.map(|s| s.result),
+            dkim_result: rec.auth_results.dkim.first().map(|d| d.result.clone()),
+            spf_result: rec.auth_results.spf.first().map(|s| s.result.clone()),
+            reason_type,
+            reason_comment,
+            dkim_domain,
+            spf_domain,
         });
     }
 

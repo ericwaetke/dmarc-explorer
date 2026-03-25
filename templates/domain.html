@@ -23,6 +23,7 @@
                     <th class="py-2 px-3 border-b border-red-200">Volume</th>
                     <th class="py-2 px-3 border-b border-red-200">Reporter</th>
                     <th class="py-2 px-3 border-b border-red-200">Disposition</th>
+                    <th class="py-2 px-3 border-b border-red-200">Reason</th>
                     <th class="py-2 px-3 border-b border-red-200">DKIM / SPF</th>
                     <th class="py-2 px-3 border-b border-red-200">Action</th>
                 </tr>
@@ -34,9 +35,35 @@
                     <td class="py-2 px-3 font-semibold">{{ fail.count }}</td>
                     <td class="py-2 px-3 text-gray-600">{{ fail.org_name }}</td>
                     <td class="py-2 px-3 text-red-600 font-semibold">{{ fail.disposition }}</td>
+                    <td class="py-2 px-3 text-gray-600 text-xs">
+                        {% match fail.reason_type %}
+                            {% when Some with (val) %}
+                                <span class="font-semibold">{{ val }}</span>
+                            {% when None %}
+                                -
+                        {% endmatch %}
+                        <br/>
+                        {% match fail.reason_comment %}
+                            {% when Some with (val) %}
+                                {{ val }}
+                            {% when None %}
+                        {% endmatch %}
+                    </td>
                     <td class="py-2 px-3">
-                        <span class="{% if fail.dkim == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">DKIM: {{ fail.dkim }}</span><br/>
-                        <span class="{% if fail.spf == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">SPF: {{ fail.spf }}</span>
+                        <span class="{% if fail.dkim == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">DKIM: {{ fail.dkim }} 
+                        {% match fail.dkim_domain %}
+                            {% when Some with (val) %}
+                                ({{ val }})
+                            {% when None %}
+                        {% endmatch %}
+                        </span><br/>
+                        <span class="{% if fail.spf == "pass" %}text-green-600{% else %}text-red-600 font-bold{% endif %}">SPF: {{ fail.spf }}
+                        {% match fail.spf_domain %}
+                            {% when Some with (val) %}
+                                ({{ val }})
+                            {% when None %}
+                        {% endmatch %}
+                        </span>
                     </td>
                     <td class="py-2 px-3">
                         <a href="/report/{{ fail.report_id }}" class="text-blue-500 hover:underline">View Report</a>

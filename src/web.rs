@@ -56,6 +56,10 @@ pub struct FailedSource {
     pub disposition: String,
     pub dkim: String,
     pub spf: String,
+    pub reason_type: Option<String>,
+    pub reason_comment: Option<String>,
+    pub dkim_domain: Option<String>,
+    pub spf_domain: Option<String>,
     pub report_id: i64,
 }
 
@@ -76,6 +80,10 @@ pub struct RecordDetail {
     pub disposition: String,
     pub dkim: String,
     pub spf: String,
+    pub reason_type: Option<String>,
+    pub reason_comment: Option<String>,
+    pub dkim_domain: Option<String>,
+    pub spf_domain: Option<String>,
 }
 
 pub fn router(pool: SqlitePool) -> Router {
@@ -135,6 +143,10 @@ async fn domain_detail(
             rec.disposition, 
             coalesce(rec.dkim_result, 'none') as dkim, 
             coalesce(rec.spf_result, 'none') as spf,
+            rec.reason_type,
+            rec.reason_comment,
+            rec.dkim_domain,
+            rec.spf_domain,
             r.id as report_id
          FROM records rec
          JOIN reports r ON rec.report_id = r.report_id
@@ -164,7 +176,7 @@ async fn report_detail(
     .unwrap();
 
     let records = sqlx::query_as::<_, RecordDetail>(
-        "SELECT source_ip, count, disposition, coalesce(dkim_result, 'none') as dkim, coalesce(spf_result, 'none') as spf FROM records WHERE report_id = ?",
+        "SELECT source_ip, count, disposition, coalesce(dkim_result, 'none') as dkim, coalesce(spf_result, 'none') as spf, reason_type, reason_comment, dkim_domain, spf_domain FROM records WHERE report_id = ?",
     )
     .bind(&report.report_id)
     .fetch_all(&*pool)

@@ -24,6 +24,7 @@
                     <th class="py-2 px-4 border-b">Source IP</th>
                     <th class="py-2 px-4 border-b">Count</th>
                     <th class="py-2 px-4 border-b">Disposition</th>
+                    <th class="py-2 px-4 border-b">Reason</th>
                     <th class="py-2 px-4 border-b">DKIM Result</th>
                     <th class="py-2 px-4 border-b">SPF Result</th>
                 </tr>
@@ -41,12 +42,38 @@
                             {{ record.disposition }}
                         </span>
                     </td>
-                    <td class="py-2 px-4">{{ record.dkim }}</td>
-                    <td class="py-2 px-4">{{ record.spf }}</td>
+                    <td class="py-2 px-4 text-xs text-gray-600">
+                        {% match record.reason_type %}
+                            {% when Some with (val) %}
+                                <span class="font-semibold">{{ val }}</span>
+                            {% when None %}
+                                -
+                        {% endmatch %}
+                        <br/>
+                        {% match record.reason_comment %}
+                            {% when Some with (val) %}
+                                {{ val }}
+                            {% when None %}
+                        {% endmatch %}
+                    </td>
+                    <td class="py-2 px-4">{{ record.dkim }}
+                        {% match record.dkim_domain %}
+                            {% when Some with (val) %}
+                                <br/><span class="text-xs text-gray-500">({{ val }})</span>
+                            {% when None %}
+                        {% endmatch %}
+                    </td>
+                    <td class="py-2 px-4">{{ record.spf }}
+                        {% match record.spf_domain %}
+                            {% when Some with (val) %}
+                                <br/><span class="text-xs text-gray-500">({{ val }})</span>
+                            {% when None %}
+                        {% endmatch %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="py-4 text-center text-gray-500">No records found in this report.</td>
+                    <td colspan="6" class="py-4 text-center text-gray-500">No records found in this report.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -17,6 +17,10 @@ pub struct DmarcRecord {
     pub disposition: String,
     pub dkim_result: Option<String>,
     pub spf_result: Option<String>,
+    pub reason_type: Option<String>,
+    pub reason_comment: Option<String>,
+    pub dkim_domain: Option<String>,
+    pub spf_domain: Option<String>,
 }
 
 pub async fn save_report(pool: &SqlitePool, report: DmarcReport) -> Result<()> {
@@ -38,8 +42,8 @@ pub async fn save_report(pool: &SqlitePool, report: DmarcReport) -> Result<()> {
 
     for rec in report.records {
         sqlx::query(
-            "INSERT INTO records (report_id, source_ip, count, disposition, dkim_result, spf_result)
-             VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO records (report_id, source_ip, count, disposition, dkim_result, spf_result, reason_type, reason_comment, dkim_domain, spf_domain)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&report.report_id)
         .bind(&rec.source_ip)
@@ -47,6 +51,10 @@ pub async fn save_report(pool: &SqlitePool, report: DmarcReport) -> Result<()> {
         .bind(&rec.disposition)
         .bind(&rec.dkim_result)
         .bind(&rec.spf_result)
+        .bind(&rec.reason_type)
+        .bind(&rec.reason_comment)
+        .bind(&rec.dkim_domain)
+        .bind(&rec.spf_domain)
         .execute(&mut *tx)
         .await?;
     }
