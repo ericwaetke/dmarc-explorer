@@ -5,7 +5,8 @@ mod web;
 
 use anyhow::Result;
 use dotenvy::dotenv;
-use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use std::str::FromStr;
 use std::env;
 use std::fs;
 use std::sync::Arc;
@@ -53,7 +54,11 @@ async fn main() -> Result<()> {
 
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&db_url)
+        .connect_with(
+            SqliteConnectOptions::from_str(&db_url)
+                .expect("invalid DATABASE_URL")
+                .create_if_missing(true),
+        )
         .await?;
     
     sqlx::migrate!("./migrations").run(&pool).await?;
