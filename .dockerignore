@@ -1,0 +1,8 @@
+target/
+dmarc.db
+.env
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store

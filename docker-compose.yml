@@ -1,0 +1,15 @@
+services:
+  dmarc-explorer:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=sqlite:///data/dmarc.db
+    env_file:
+      - .env
+    volumes:
+      - dmarc-data:/data
+    restart: unless-stopped
+
+volumes:
+  dmarc-data:
