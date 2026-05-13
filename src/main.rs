@@ -32,9 +32,10 @@ async fn main() -> Result<()> {
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    if let Some(path) = db_url.strip_prefix("sqlite:") {
-        if let Some(parent) = std::path::Path::new(path).parent() {
-            fs::create_dir_all(parent).ok();
+    if let Some(parent) = std::path::Path::new(&db_url.strip_prefix("sqlite:").unwrap_or(&db_url)).parent() {
+        match fs::create_dir_all(parent) {
+            Ok(()) => info!("Database directory ready: {:?}", parent),
+            Err(e) => error!("Failed to create database directory {:?}: {}", parent, e),
         }
     }
 

@@ -19,7 +19,7 @@ RUN touch src/main.rs && cargo build --target x86_64-unknown-linux-musl --releas
 
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata && mkdir -p /data
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/dmarc-explorer /usr/local/bin/dmarc-explorer
 
