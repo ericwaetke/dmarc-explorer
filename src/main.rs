@@ -7,6 +7,7 @@ use anyhow::Result;
 use dotenvy::dotenv;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::env;
+use std::fs;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, error};
@@ -30,6 +31,13 @@ async fn main() -> Result<()> {
     info!("Starting dmarc-explorer");
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    if let Some(path) = db_url.strip_prefix("sqlite:") {
+        if let Some(parent) = std::path::Path::new(path).parent() {
+            fs::create_dir_all(parent).ok();
+        }
+    }
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect(&db_url)
