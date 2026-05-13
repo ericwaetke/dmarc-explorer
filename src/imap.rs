@@ -80,7 +80,7 @@ async fn connect_and_process(
         *w = "Searching for DMARC reports...".to_string();
     }
 
-    let messages = session.search("UNSEEN OR SUBJECT \"Report domain:\" SUBJECT \"DMARC\"").await?;
+    let messages = session.search("UNSEEN OR SUBJECT \"Report domain:\" OR SUBJECT \"DMARC\" SUBJECT \"=?utf-8?B?\"").await?;
     let total_messages = messages.len();
     
     if total_messages > 0 {
