@@ -5,6 +5,7 @@ use mailparse::{parse_mail, ParsedMail};
 use quick_xml::de::from_reader;
 use serde::Deserialize;
 use std::io::{Cursor, Read};
+use tracing::info;
 use zip::ZipArchive;
 
 #[derive(Debug, Deserialize)]
@@ -82,35 +83,57 @@ struct SpfResult {
 
 pub fn parse_email(raw_email: &[u8]) -> Result<Vec<DmarcReport>> {
     let parsed = parse_mail(raw_email)?;
+    info!("mail parsed");
     let mut reports = Vec::new();
     find_and_parse_attachments(&parsed, &mut reports)?;
+    info!("attachments found");
     Ok(reports)
 }
 
 fn find_and_parse_attachments(part: &ParsedMail, reports: &mut Vec<DmarcReport>) -> Result<()> {
     if part.subparts.is_empty() {
         let content_type = part.ctype.mimetype.clone();
-        let filename = part.ctype.params.get("name").cloned().unwrap_or_default();
+        let from_ct = part.ctype.params.get("name").cloned().unwrap_or_default();
+        let from_cd = part
+            .get_content_disposition()
+            .params
+            .get("filename")
+            .cloned()
+            .unwrap_or_default();
+        let filename = if from_ct.is_empty() { from_cd } else { from_ct };
+
+        // Only process parts that look like DMARC report attachments
+        if !filename.ends_with(".zip")
+            && !filename.ends_with(".gz")
+            && !content_type.contains("zip")
+            && !content_type.contains("gzip")
+        {
+            return Ok(());
+        }
 
         let body = part.get_body_raw()?;
         if filename.ends_with(".zip") || content_type.contains("zip") {
-            let mut archive = ZipArchive::new(Cursor::new(body))?;
-            for i in 0..archive.len() {
-                let mut file = archive.by_index(i)?;
-                if file.name().ends_with(".xml") {
-                    let mut xml_data = Vec::new();
-                    file.read_to_end(&mut xml_data)?;
-                    if let Ok(report) = parse_xml(&xml_data) {
-                        reports.push(report);
+            if let Ok(mut archive) = ZipArchive::new(Cursor::new(body)) {
+                for i in 0..archive.len() {
+                    if let Ok(mut file) = archive.by_index(i) {
+                        if file.name().ends_with(".xml") {
+                            let mut xml_data = Vec::new();
+                            if file.read_to_end(&mut xml_data).is_ok() {
+                                if let Ok(report) = parse_xml(&xml_data) {
+                                    reports.push(report);
+                                }
+                            }
+                        }
                     }
                 }
             }
         } else if filename.ends_with(".gz") || content_type.contains("gzip") {
             let mut gz = GzDecoder::new(Cursor::new(body));
             let mut xml_data = Vec::new();
-            gz.read_to_end(&mut xml_data)?;
-            if let Ok(report) = parse_xml(&xml_data) {
-                reports.push(report);
+            if gz.read_to_end(&mut xml_data).is_ok() {
+                if let Ok(report) = parse_xml(&xml_data) {
+                    reports.push(report);
+                }
             }
         }
     } else {
