@@ -3,10 +3,10 @@ use futures::StreamExt;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-use crate::parser;
 use crate::db;
+use crate::parser;
 
 pub async fn run_imap_client(
     host: &str,
@@ -51,18 +51,14 @@ async fn connect_and_process(
     use std::sync::Arc as StdArc;
     use tokio::net::TcpStream;
     use tokio_rustls::rustls;
-    
+
     let tcp = TcpStream::connect((host, 993)).await?;
     let mut root_cert_store = rustls::RootCertStore::empty();
-    root_cert_store.extend(
-        webpki_roots::TLS_SERVER_ROOTS
-            .iter()
-            .cloned()
-    );
+    root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     let config = rustls::ClientConfig::builder()
         .with_root_certificates(root_cert_store)
         .with_no_client_auth();
-        
+
     let connector = tokio_rustls::TlsConnector::from(StdArc::new(config));
     let domain = rustls::pki_types::ServerName::try_from(host.to_string())?;
     let tls = connector.connect(domain, tcp).await?;
@@ -80,18 +76,26 @@ async fn connect_and_process(
         *w = "Searching for DMARC reports...".to_string();
     }
 
-    let messages = session.search("UNSEEN OR SUBJECT \"Report domain:\" OR SUBJECT \"DMARC\" SUBJECT \"=?utf-8?B?\"").await?;
+    info!("were here");
+
+    let messages = session
+        .search("UNSEEN OR SUBJECT \"Report domain:\" OR SUBJECT \"DMARC\" SUBJECT \"=?utf-8?B?\"")
+        .await?;
     let total_messages = messages.len();
-    
+
     if total_messages > 0 {
+        let message = format!("Found {} DMARC reports", total_messages);
         let mut w = status.write().await;
-        *w = format!("Found {} DMARC reports", total_messages);
+        info!("{}", message.clone());
+        *w = message;
     }
 
     for (i, seq) in messages.iter().enumerate() {
         {
             let mut w = status.write().await;
-            *w = format!("Analyzing email {} of {}", i + 1, total_messages);
+            let message = format!("Analyzing email {} of {}", i + 1, total_messages);
+            info!("{}", message.clone());
+            *w = message;
         }
 
         let mut body_bytes: Option<Vec<u8>> = None;
@@ -103,7 +107,7 @@ async fn connect_and_process(
                 }
             }
         }
-        
+
         if let Some(body) = body_bytes {
             if let Ok(parsed_data) = parser::parse_email(&body) {
                 for report in parsed_data {
@@ -112,10 +116,16 @@ async fn connect_and_process(
                 // Move message to dest folder
                 session.copy(seq.to_string(), dest_folder).await?;
                 // Mark as seen and deleted from INBOX
-                let store_stream = session.store(seq.to_string(), "+FLAGS (\\Seen \\Deleted)").await?;
+                let store_stream = session
+                    .store(seq.to_string(), "+FLAGS (\\Seen \\Deleted)")
+                    .await?;
                 tokio::pin!(store_stream);
                 while let Some(_) = store_stream.next().await {}
+            } else {
+                warn!("Couldnt Parse Email")
             }
+        } else {
+            warn!("No Body")
         }
     }
     {
@@ -123,7 +133,7 @@ async fn connect_and_process(
         tokio::pin!(expunge_stream);
         while let Some(_) = expunge_stream.next().await {}
     }
-    
+
     {
         let mut w = status.write().await;
         *w = "Listening for new emails...".to_string();
@@ -136,6 +146,6 @@ async fn connect_and_process(
     if let Ok(_) = idle_wait.await {
         info!("New message arrived, waking up...");
     }
-    
+
     Ok(())
 }
